@@ -102,7 +102,7 @@ export default function Tables() {
                 selection={selectedRows}
                 onSelectionChange={(e) => setSelectedRows(e.value as ColumnName[])}
                 dataKey="id"
-                header="ColumnNames Table"
+                header="BOOKS"
                 paginator={false}
                 selectionMode="multiple"
             >
