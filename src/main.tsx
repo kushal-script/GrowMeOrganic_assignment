@@ -4,10 +4,10 @@ import 'primeicons/primeicons.css';
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
+import Tables from './components/Pages.tsx';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <Tables />
   </StrictMode>,
 )
