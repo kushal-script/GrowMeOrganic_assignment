@@ -5,7 +5,6 @@ import { Paginator } from 'primereact/paginator';
 import { OverlayPanel } from 'primereact/overlaypanel';
 import { InputNumber } from 'primereact/inputnumber';
 import { Button } from 'primereact/button';
-import { Checkbox } from 'primereact/checkbox';
 import type { ColumnName } from '../attributes';
 import { fetchPages } from '../api';
 
@@ -60,20 +59,8 @@ export default function Tables() {
     };
 
     const headerCheckboxTemplate = () => {
-        const allSelected = data.length > 0 && data.every(row => selectedRows.some(s => s.id === row.id));
         return (
-            <div className="flex items-center gap-2 relative">
-                <Checkbox
-                    inputId="header-checkbox"
-                    checked={allSelected}
-                    onChange={(e) => {
-                        if (e.checked) {
-                            setSelectedRows(data);
-                        } else {
-                            setSelectedRows([]);
-                        }
-                    }}
-                />
+            <div className="flex items-center gap-2 mr-10 relative">
                 <i
                     className="pi pi-angle-down cursor-pointer"
                     onClick={(e) => opRef.current?.toggle(e)}
