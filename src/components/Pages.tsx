@@ -117,7 +117,12 @@ export default function Tables() {
     };
 
     const handleClearSelection = () => {
-        persistentSelection.current.clear();
+        const pageData = pageCache.current[page] ?? [];
+
+        pageData.forEach((row) => {
+            persistentSelection.current.delete(row.id.toString());
+        });
+
         setSelectedRows([]);
         opRef.current?.hide();
     };
@@ -131,7 +136,7 @@ export default function Tables() {
                 <div
                     className="flex items-center gap-1 cursor-pointer"
                     onClick={(e) => opRef.current?.toggle(e)}
-                    title="Select N items"
+                    title="Bulk Selection Options"
                 >
                     <i className="pi pi-angle-down" />
                     {selectedCount > 0 && (
@@ -140,32 +145,50 @@ export default function Tables() {
                 </div>
 
                 <OverlayPanel ref={opRef} showCloseIcon className="p-3">
-                    <div className="flex flex-col gap-2 min-w-[200px]">
+                    <div className="min-w-[200px]">
+                        {/* Select Items Input */}
                         <InputNumber
                             value={selectCount}
                             onChange={(e) => setSelectCount(e.value ?? null)}
                             placeholder="Enter number"
                             min={0}
                             useGrouping={false}
+                            className="w-full mb-2"
                         />
+
+                        {/* Select Items Button */}
                         <Button
+                            className="w-full mb-2"
                             label={
                                 bulkLoading
                                     ? 'Selecting...'
-                                    : selectCount === 0
-                                        ? 'Clear Selection'
-                                        : selectCount == null
-                                            ? 'Select items'
-                                            : `Select ${selectCount} items`
+                                    : selectCount == null || selectCount <= 0
+                                        ? 'Select Items'
+                                        : `Select ${selectCount} Items`
                             }
+                            onClick={handleSelectCount}
+                            disabled={bulkLoading || selectCount == null || selectCount <= 0}
+                        />
+
+                        {/* Clear Page Selection Button */}
+                        <Button
+                            className="w-full mb-2"
+                            label="Clear Page"
+                            onClick={handleClearSelection}
+                            disabled={getPageSelections(data).length === 0}
+                        />
+
+                        {/* Clear All Button */}
+                        <Button
+                            className="w-full"
+                            label="Clear All"
+                            severity="danger"
                             onClick={() => {
-                                if (selectCount === 0) {
-                                    handleClearSelection();
-                                } else {
-                                    handleSelectCount();
-                                }
+                                persistentSelection.current.clear();
+                                setSelectedRows([]);
+                                opRef.current?.hide();
                             }}
-                            disabled={bulkLoading || selectCount == null}
+                            disabled={persistentSelection.current.size === 0}
                         />
                     </div>
                 </OverlayPanel>
