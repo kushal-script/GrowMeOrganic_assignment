@@ -124,13 +124,21 @@ export default function Tables() {
 
     // Bulk selection template
     const headerCheckboxTemplate = () => {
+        const selectedCount = persistentSelection.current.size;
+
         return (
             <div className="flex items-center gap-2 mr-10 relative">
-                <i
-                    className="pi pi-angle-down cursor-pointer"
+                <div
+                    className="flex items-center gap-1 cursor-pointer"
                     onClick={(e) => opRef.current?.toggle(e)}
                     title="Select N items"
-                />
+                >
+                    <i className="pi pi-angle-down" />
+                    {selectedCount > 0 && (
+                        <span className="text-sm text-blue-600 font-semibold">({selectedCount})</span>
+                    )}
+                </div>
+
                 <OverlayPanel ref={opRef} showCloseIcon className="p-3">
                     <div className="flex flex-col gap-2 min-w-[200px]">
                         <InputNumber
