@@ -15,14 +15,19 @@ export default function Tables() {
     const [loading, setLoading] = useState(false);
     const [selectedRows, setSelectedRows] = useState<ColumnName[]>([]);
     const [selectCount, setSelectCount] = useState<number | null>(null);
+    const [bulkLoading, setBulkLoading] = useState(false);
 
     const perPage = 12;
-    const opRef = useRef<OverlayPanel>(null);
 
+    const opRef = useRef<OverlayPanel>(null);
+    const pageCache = useRef<Record<number, ColumnName[]>>({});
+
+    // Initial data load or page change
     const getData = async () => {
         setLoading(true);
         const res = await fetchPages(page);
         setData(res.data);
+        pageCache.current[page] = res.data;
         setTotalRecords(res.total);
         setLoading(false);
     };
@@ -31,34 +36,60 @@ export default function Tables() {
         getData();
     }, [page]);
 
+    // Bulk selection logic
     const handleSelectCount = async () => {
         if (!selectCount || selectCount <= 0) return;
 
-        let remaining = selectCount;
-        let newSelected: ColumnName[] = [];
+        const count = selectCount;
+        const startPage = page;
+        const totalPages = Math.ceil(totalRecords / perPage);
+        const pagesToFetch: number[] = [];
 
-        let currentPage = page;
+        let remaining = count;
+        let currentPage = startPage;
 
-        while (remaining > 0) {
-            const res = await fetchPages(currentPage);
-            const pageData = res.data;
-
-            const toSelect = pageData.slice(0, remaining);
-            newSelected = [...newSelected, ...toSelect];
-            remaining -= toSelect.length;
-
-            if (remaining > 0 && (currentPage * perPage) < res.total) {
-                currentPage++;
-            } else {
-                break;
+        while (remaining > 0 && currentPage <= totalPages) {
+            if (!pageCache.current[currentPage]) {
+                pagesToFetch.push(currentPage);
             }
+            remaining -= perPage;
+            currentPage++;
         }
 
-        setSelectedRows(newSelected);
+        setBulkLoading(true);
+
+        // Parallel fetch for missing pages
+        await Promise.all(
+            pagesToFetch.map(async (p) => {
+                const res = await fetchPages(p);
+                pageCache.current[p] = res.data;
+            })
+        );
+
+        // Selection logic
+        const allSelected: ColumnName[] = [];
+        let toSelect = count;
+        currentPage = startPage;
+
+        while (toSelect > 0 && currentPage <= totalPages) {
+            const pageData = pageCache.current[currentPage] ?? [];
+            const chunk = pageData.slice(0, toSelect);
+            allSelected.push(...chunk);
+            toSelect -= chunk.length;
+            currentPage++;
+        }
+
+        setSelectedRows(allSelected);
+        setBulkLoading(false);
         opRef.current?.hide();
     };
 
+    // Bulk selection template
     const headerCheckboxTemplate = () => {
+        const handleClearSelection = () => {
+            setSelectedRows([]);
+            opRef.current?.hide();
+        };
         return (
             <div className="flex items-center gap-2 mr-10 relative">
                 <i
@@ -67,14 +98,33 @@ export default function Tables() {
                     title="Select N items"
                 />
                 <OverlayPanel ref={opRef} showCloseIcon className="p-3">
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 min-w-[200px]">
                         <InputNumber
                             value={selectCount}
-                            onValueChange={(e) => setSelectCount(e.value ?? null)}
+                            onChange={(e) => setSelectCount(e.value ?? null)}
                             placeholder="Enter number"
-                            min={1}
+                            min={0}
+                            useGrouping={false}
                         />
-                        <Button label="Select" onClick={handleSelectCount} />
+                        <Button
+                            label={
+                                bulkLoading
+                                    ? 'Selecting...'
+                                    : selectCount === 0
+                                        ? 'Clear Selection'
+                                        : selectCount == null
+                                            ? 'Select items'
+                                            : `Select ${selectCount} items`
+                            }
+                            onClick={() => {
+                                if (selectCount === 0) {
+                                    handleClearSelection();
+                                } else {
+                                    handleSelectCount();
+                                }
+                            }}
+                            disabled={bulkLoading || selectCount == null}
+                        />
                     </div>
                 </OverlayPanel>
             </div>
