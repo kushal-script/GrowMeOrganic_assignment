@@ -13,7 +13,6 @@ export default function Tables() {
     const [page, setPage] = useState(1);
     const [totalRecords, setTotalRecords] = useState(0);
     const [loading, setLoading] = useState(false);
-    const [selectedRows, setSelectedRows] = useState<ColumnName[]>([]);
     const [selectCount, setSelectCount] = useState<number | null>(null);
     const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -22,6 +21,16 @@ export default function Tables() {
     const opRef = useRef<OverlayPanel>(null);
     const pageCache = useRef<Record<number, ColumnName[]>>({});
 
+    // Persistent selection map
+    const persistentSelection = useRef<Map<string, ColumnName>>(new Map());
+
+    // Get current page's selected rows from persistent map
+    const getPageSelections = (pageData: ColumnName[]) => {
+        return pageData.filter((row) => persistentSelection.current.has(row.id.toString()));
+    };
+
+    const [selectedRows, setSelectedRows] = useState<ColumnName[]>([]);
+
     // Initial data load or page change
     const getData = async () => {
         setLoading(true);
@@ -29,12 +38,30 @@ export default function Tables() {
         setData(res.data);
         pageCache.current[page] = res.data;
         setTotalRecords(res.total);
+        setSelectedRows(getPageSelections(res.data));
         setLoading(false);
     };
 
     useEffect(() => {
         getData();
     }, [page]);
+
+    // Selection handler for current page
+    const handleSelectionChange = (e: { value: ColumnName[] }) => {
+        const selected = e.value;
+        const pageData = pageCache.current[page] ?? [];
+
+        // Updating persistent map
+        pageData.forEach((row) => {
+            if (selected.find((s) => s.id === row.id)) {
+                persistentSelection.current.set(row.id.toString(), row);
+            } else {
+                persistentSelection.current.delete(row.id.toString());
+            }
+        });
+
+        setSelectedRows(selected);
+    };
 
     // Bulk selection logic
     const handleSelectCount = async () => {
@@ -73,23 +100,30 @@ export default function Tables() {
 
         while (toSelect > 0 && currentPage <= totalPages) {
             const pageData = pageCache.current[currentPage] ?? [];
-            const chunk = pageData.slice(0, toSelect);
-            allSelected.push(...chunk);
-            toSelect -= chunk.length;
+            for (const item of pageData) {
+                if (!persistentSelection.current.has(item.id.toString())) {
+                    persistentSelection.current.set(item.id.toString(), item);
+                    allSelected.push(item);
+                    toSelect--;
+                    if (toSelect === 0) break;
+                }
+            }
             currentPage++;
         }
 
-        setSelectedRows(allSelected);
+        setSelectedRows(getPageSelections(data));
         setBulkLoading(false);
+        opRef.current?.hide();
+    };
+
+    const handleClearSelection = () => {
+        persistentSelection.current.clear();
+        setSelectedRows([]);
         opRef.current?.hide();
     };
 
     // Bulk selection template
     const headerCheckboxTemplate = () => {
-        const handleClearSelection = () => {
-            setSelectedRows([]);
-            opRef.current?.hide();
-        };
         return (
             <div className="flex items-center gap-2 mr-10 relative">
                 <i
@@ -137,7 +171,7 @@ export default function Tables() {
                 value={data}
                 loading={loading}
                 selection={selectedRows}
-                onSelectionChange={(e) => setSelectedRows(e.value as ColumnName[])}
+                onSelectionChange={handleSelectionChange}
                 dataKey="id"
                 header="BOOKS"
                 paginator={false}
